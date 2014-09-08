@@ -14,7 +14,7 @@
 using std::cout;
 using std::endl;
 using std::string;
-using std::stringstream;
+using std::istringstream;
 
 static ShaderProgram *program;
 
@@ -25,7 +25,11 @@ struct {
 
 } programPointers;
 
-ModelObject::ModelObject() {
+ModelObject::ModelObject(string filename, bool recalculateNormals):
+	texture(0) {
+	if (!filename.empty()){
+		load(filename, recalculateNormals);
+	}
 }
 
 ModelObject::~ModelObject() {
@@ -34,28 +38,50 @@ ModelObject::~ModelObject() {
 struct Face {
 	int vi[4];
 	int ni[4];
+	int ti[4];
 };
+
+int toInt(string input){
+	istringstream ss(input);
+	int ret;
+	ss >> ret;
+	return ret;
+}
 
 Face parseFace(std::string line){
 	std::string label;
 	Face face;
 
-	std::stringstream ss(line);
+	istringstream ss(line);
 
 	ss >> label;
 
 	for (int i = 0; i < 4; ++i){
 		string tmp;
 		ss >> tmp;
+		istringstream ss2(tmp);
 
-		for (auto &it: tmp){
-			if (it == '/'){
-				it = ' ';
-			}
+		string tmp2;
+		if(std::getline(ss2, tmp2, '/')){
+			face.vi[i] = toInt(tmp2);
 		}
-
-		std::stringstream ss2(tmp);
-		ss2 >> face.vi[i] >> face.ni[i];
+		else{
+			face.vi[i] = 0;
+		}
+		std::getline(ss2, tmp2, '/');
+		if(!tmp2.empty()){
+			face.ti[i] = toInt(tmp2);
+		}
+		else {
+			face.ti[i] = 0;
+		}
+		std::getline(ss2, tmp2, '/');
+		if(!tmp2.empty()){
+			face.ni[i] = toInt(tmp2);
+		}
+		else {
+			face.ni[i] = 0;
+		}
 	}
 
 	return face;
@@ -78,7 +104,7 @@ Vec calculateTriangleNormal(Vec v1, Vec v2, Vec v3){
 }
 
 bool parseHullState(string line){
-	stringstream ss(line);
+	istringstream ss(line);
 	string label, name;
 	const string hullKeyword = "hull";
 	ss >> label >> name;
@@ -91,13 +117,13 @@ bool parseHullState(string line){
 	return true;
 }
 
-void ModelObject::calculateNormals() {
+void ModelObject::calculateNormals(std::vector<Vertex> &vertices, std::vector<unsigned int> &indices) {
 	//Calculate normals
 	for (int i = 0; i < indices.size(); i += 4) {
-		auto& v1 = vertices[indices[i]];
-		auto& v2 = vertices[indices[i + 1]];
-		auto& v3 = vertices[indices[i + 2]];
-		auto& v4 = vertices[indices[i + 3]];
+		auto& v1 = vertices[indices[i] - 1];
+		auto& v2 = vertices[indices[i + 1] - 1];
+		auto& v3 = vertices[indices[i + 2] - 1];
+		auto& v4 = vertices[indices[i + 3] - 1];
 		Vec n = calculateTriangleNormal(v1.coord, v2.coord, v3.coord);
 		v1.normal += n;
 		v2.normal += n;
@@ -112,16 +138,46 @@ void ModelObject::calculateNormals() {
 	}
 }
 
-void ModelObject::load(std::string filename) {
-	std::vector <vec> vert, hullvert;
-	std::vector <unsigned int> vind, hull;
+//Dummy function to create texture
+GLuint loadTexture(std::string filename){
+	// Create one OpenGL texture
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+
+	int width = 128, height = 128;
+	unsigned char data [width * height * 3];
+	for (int i = 0; i < width * height * 3; ++i){
+		data[i] = i % 255;
+	}
+
+	// "Bind" the newly created texture : all future texture functions will modify this texture
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	// Give the image to OpenGL
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	return textureID;
+}
+
+void ModelObject::load(std::string filename, bool recalculateNormals) {
+	std::vector <vec> vert, hullvert, tex, norm;
+	std::vector <Face> faces;
+	std::vector <unsigned int> vind, nind, tind, hullind;
+	std::vector <Vertex> tempVertices;
 
 	bool readingHull = false;
 
 	vert.reserve(100);
 	hullvert.reserve(100);
 	vind.reserve(100);
-	hull.reserve(100);
+	norm.reserve(100);
+	hullind.reserve(100);
+	nind.reserve(100);
+	tind.reserve(100);
+	faces.reserve(100);
 
 	cout << "laddar " << filename << endl;
 
@@ -149,15 +205,18 @@ void ModelObject::load(std::string filename) {
 			auto v = parseVec(line);
 
 			if (line[1] == 'n'){
-//				norm.push_back(v);
+				norm.push_back(v);
+			}
+			else if(line[1] == 't'){
+				tex.push_back(v);
 			}
 			else{
 				vert.push_back(v);
 			}
 
 			if (readingHull){
-				if (line[1] != 'n'){
-					hull.push_back(vert.size()); //Note that vertex at that index is a hull vertex
+				if (line[1] != 'n' && line[1] != 't'){ //Ignoring normal and texture vertices
+					hullind.push_back(vert.size()); //Note that vertex at that index is a hull vertex
 					hullvert.push_back(v);
 				}
 			}
@@ -170,8 +229,11 @@ void ModelObject::load(std::string filename) {
 				Face f = parseFace(line);
 
 				for (int i = 0; i < 4; ++i){
-					vind.push_back(f.vi[i] - 1);
+					vind.push_back(f.vi[i]);
+					nind.push_back(f.ni[i]);
+					tind.push_back(f.ti[i]);
 				}
+				faces.push_back(f);
 			}
 
 			break;
@@ -184,25 +246,54 @@ void ModelObject::load(std::string filename) {
 	}
 
 	//Remove vertices only used for convex hull
-	for (int i = hull.size() - 1; i >= 0; --i){
-		vert.erase(vert.begin() + hull[i]);
-		for (auto &ind: vind){
-			if (ind >= hull[i]){
-				--ind;
+//	for (int i = hullind.size() - 1; i >= 0; --i){
+//		vert.erase(vert.begin() + hullind[i]);
+//		for (auto &ind: vind){
+//			if (ind >= hullind[i]){
+//				--ind;
+//			}
+//		}
+////		for (auto &ind: tind){
+////			if (ind >= hullind[i]){
+////				--ind;
+////			}
+////		}
+//	}
+
+	tempVertices.resize(vert.size());
+	for (int i = 0; i < vert.size(); ++i){
+		tempVertices[i].coord = vert[i];
+	}
+
+//	indices = vind;
+
+	if (recalculateNormals){
+		//Calculate normals
+		calculateNormals(tempVertices, vind);
+	}
+
+
+	vertices.resize(tind.size());
+
+	for (int i = 0; i < vind.size(); ++i){
+		auto vi = vind[i];
+		auto ti = tind[i];
+		auto ni = nind[i];
+		Vertex v = tempVertices[vi - 1];
+		if (ti > 0){
+			v.tex = tex[ti - 1];
+		}
+		if (!recalculateNormals){
+			if (ni > 0){
+				v.normal = norm[ni - 1];
 			}
 		}
+		vertices.push_back(v);
 	}
 
-	vertices.resize(vert.size());
-	for (int i = 0; i < vert.size(); ++i){
-		vertices[i].coord = vert[i];
-	}
-
-	indices = vind;
-
-	//Calculate normals
-	calculateNormals();
 	convexHull = hullvert;
+
+	texture = loadTexture("apa.png");
 }
 
 void ModelObject::init() {
@@ -258,25 +349,33 @@ void ModelObject::render() {
 
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
+	if (texture) {
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, texture);
+	}
 	GLfloat lightpos[] = {10. * c, -10. * s, 0., 0.};
 	glLightfv(GL_LIGHT0, GL_POSITION, lightpos);
-	GLfloat lightcolor[] = {.1, .3, .1};
-	glLightfv(GL_LIGHT0, GL_COLOR, lightcolor);
+	GLfloat lightcolor[] = {.1, .3, .0, 0};
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, lightcolor);
 
 //	program->useProgram();
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
     glVertexPointer(3, GL_DOUBLE, sizeof(Vertex), &vertices[0].coord.x);
     glNormalPointer(GL_DOUBLE, sizeof(Vertex), &vertices[0].normal.x);
-    glDrawElements(GL_QUADS, indices.size(), GL_UNSIGNED_INT, &indices[0]);
+    glTexCoordPointer(2, GL_DOUBLE, sizeof(Vertex), &vertices[0].tex.x);
+//    glDrawElements(GL_QUADS, indices.size(), GL_UNSIGNED_INT, &indices[0]);
+    glDrawArrays(GL_QUADS, 0, vertices.size());
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
     glDisable(GL_LIGHTING);
     glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_DOUBLE, sizeof(Vertex), &convexHull[0].x);
+    glVertexPointer(3, GL_DOUBLE, sizeof(Vec), &convexHull[0].x);
     glDrawArrays(GL_POINTS, 0, convexHull.size());
     glDisableClientState(GL_VERTEX_ARRAY);
 

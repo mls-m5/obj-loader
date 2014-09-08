@@ -16,25 +16,25 @@
 //};
 
 struct Vertex{
-	Vec coord, normal;
+	Vec coord, normal, tex;
 };
 
 class ModelObject {
 public:
-	ModelObject();
+	ModelObject(std::string filename = "", bool recalculateNormals = true);
 	virtual ~ModelObject();
 
 
 	static void init();
 
-	void load(std::string filename);
+	void load(std::string filename, bool recalculateNormals = true);
 	void render();
 
+protected:
 	std::vector<Vertex> vertices;
 	std::vector<Vec> convexHull;
-	std::vector<unsigned int> indices;
+	unsigned int texture;
 
-protected:
-	void calculateNormals();
+	void calculateNormals(std::vector<Vertex> &vertices, std::vector<unsigned int> &indices);
 };
 

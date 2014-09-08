@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
         sdldie("Unable to initialize SDL"); /* Or die on error */
 
     mainwindow = SDL_CreateWindow("model-loader", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        512, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+        512 * 2, 512 * 2, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (!mainwindow) /* Die if creation failed */
         sdldie("Unable to create window");
 
@@ -62,10 +62,13 @@ int main(int argc, char *argv[])
 
     glEnable(GL_DEPTH_TEST);
 
-    initDrawModule(512, 512);
+    initDrawModule(512 * 2, 512 * 2);
 	ModelObject modelObject;
 	modelObject.init();
-	modelObject.load("ship2-smooth.obj");
+	modelObject.load("ship2-smooth.obj", true);
+//	modelObject.load("untitled.obj", false);
+//	modelObject.load("ship3.obj", true);
+//	modelObject.load("ship.obj", true);
 
 	bool running = true;
 

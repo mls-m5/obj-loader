@@ -30,6 +30,7 @@ void QuitDrawModule();
 
 //void modelTransform(unsigned int pointer, Vec p, double a, double scale = 1);
 void modelTransform(unsigned int pointer, Vec p, double a, double scaleX, double scaleY);
+void setModelTransform(float *m);
 void resetTransform(unsigned int poniter);
 void setCam(Vec p, double a);
 void drawSquare(Vec p, double a, double scaleX, double scaleY, DrawStyle);

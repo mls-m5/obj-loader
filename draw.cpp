@@ -40,6 +40,12 @@ void resetTransform(unsigned int pointer){
     glUniformMatrix4fv(pointer, 1, GL_FALSE, transformMatrix);
 }
 
+void setModelTransform(float* m) {
+	for (int i = 0; i < 16; ++i){
+		transformMatrix[i] = m[i];
+	}
+}
+
 void setDimensions(double width, double height){
 	screenWidth = width;
 	screenHeight = height;

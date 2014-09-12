@@ -3,7 +3,7 @@
 #include <stdlib.h>
 /* If using gl3.h */
 /* Ensure we are using opengl's core profile only */
-//#define GL3_PROTOTYPES 1
+#define GL3_PROTOTYPES 1
 #include <GL/gl.h>
 
 #include <SDL2/SDL.h>
@@ -45,6 +45,9 @@ int main(int argc, char *argv[])
     if (SDL_Init(SDL_INIT_VIDEO) < 0) /* Initialize SDL's Video subsystem */
         sdldie("Unable to initialize SDL"); /* Or die on error */
 
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
     mainwindow = SDL_CreateWindow("model-loader", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         512 * 2, 512 * 2, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (!mainwindow) /* Die if creation failed */
@@ -83,10 +86,6 @@ int main(int argc, char *argv[])
 		glTranslated(0,0,-15);
 		glMatrixMode(GL_MODELVIEW);
 		modelObject.render();
-//		glBegin(GL_POINTS);
-//		glColor3f(1,1,1);
-//		glVertex3f(0,0,0);
-//		glEnd();
 
 		/* Swap our back buffer to the front */
 		SDL_GL_SwapWindow(mainwindow);

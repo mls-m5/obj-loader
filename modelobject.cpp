@@ -5,6 +5,7 @@
  *      Author: Mattias Larsson Sköld
  */
 
+#define GL3_PROTOTYPES 1
 #include "modelobject.h"
 #include "shaderprogram.h"
 #include <fstream>
@@ -19,9 +20,13 @@ using std::istringstream;
 static ShaderProgram *program;
 
 struct {
-	GLuint vertexPointer;
-	GLuint normalPointer;
-	GLuint matrix;
+	GLint vertexPointer;
+	GLint normalPointer;
+	GLint texCoordPointer;
+
+	GLint texture;
+	GLint matrix;
+	GLint normalMatrix;
 
 } programPointers;
 
@@ -315,7 +320,10 @@ void ModelObject::init() {
 	program = new ShaderProgram(vertex, fragment);
 	programPointers.vertexPointer = program->getAttribute("vPosition");
 	programPointers.normalPointer = program->getAttribute("vNormal");
+	programPointers.texCoordPointer = program->getAttribute("vTexCoord");
 	programPointers.matrix = program->getUniform("mvp_matrix");
+	programPointers.normalMatrix = program->getUniform("normal_matrix");
+	programPointers.texture = program->getUniform("sTexture");
 
 }
 
@@ -325,35 +333,22 @@ int *index = {0};
 void ModelObject::render() {
 	static float angle = 0;
 	glPushMatrix();
-	glScalef(.2, .2, .2);
+	glScalef(.1, .1, .1);
 	angle ++;
-	glRotatef(-45, 1, 0, 0);
+	glRotatef(45 + 180, 1, 0, 0);
 	glRotatef(angle, 0,0,1);
 	auto s = sin(angle / 180. * 3.1415);
 	auto c = cos(angle / 180. * 3.1415);
-//
-//    glBegin(GL_QUADS);
-//    glColor4f(1, 1, 1, 1);
-//
-//    Vec l(c, s, .1);
-//    l.normalize();
-//
-//    for (int i: indices){
-//    	auto &v = vertices[i];
-//    	auto color = vertices[i].normal * l;
-//
-//    	if(v.normal.z > 0){
-////    		glColor3f(v.normal.z * c, v.normal.z / 2 * s, v.normal.z / 2);
-//
-//    		glColor3f(color / 3., color / 3., color / 2.);
-//    	}
-//    	else{
-//    		glColor3f(0, 0,0);
-//    	}
-//    	glVertex3dv(&v.coord.x);
-//    }
-//    glEnd();
 
+	float m[16], m2[16];
+	glGetFloatv(GL_MODELVIEW_MATRIX, m);
+	m2[3] = m2[7] = m2[11] = m2[12] = m2[13] = m2[14] = m2[15];
+	for (int x = 0; x < 3; ++x){
+		for (int y = 0; y < 3; ++y){
+			auto i = x + y * 4;
+			m2[i] = m[i];
+		}
+	}
 
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
@@ -366,28 +361,31 @@ void ModelObject::render() {
 	GLfloat lightcolor[] = {.1, .3, .0, 0};
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, lightcolor);
 
-//	program->useProgram();
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	if (0)	{
+		//	program->useProgram();
+		glEnableClientState(GL_VERTEX_ARRAY);
+		glEnableClientState(GL_NORMAL_ARRAY);
+		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
-    glVertexPointer(3, GL_DOUBLE, sizeof(Vertex), &vertices[0].coord.x);
-    glNormalPointer(GL_DOUBLE, sizeof(Vertex), &vertices[0].normal.x);
-    glTexCoordPointer(2, GL_DOUBLE, sizeof(Vertex), &vertices[0].tex.x);
-//    glDrawElements(GL_QUADS, indices.size(), GL_UNSIGNED_INT, &indices[0]);
-    glDrawArrays(GL_QUADS, 0, vertices.size());
+		glVertexPointer(3, GL_DOUBLE, sizeof(Vertex), &vertices[0].coord.x);
+		glNormalPointer(GL_DOUBLE, sizeof(Vertex), &vertices[0].normal.x);
+		glTexCoordPointer(2, GL_DOUBLE, sizeof(Vertex), &vertices[0].tex.x);
+		//    glDrawElements(GL_QUADS, indices.size(), GL_UNSIGNED_INT, &indices[0]);
+		glDrawArrays(GL_QUADS, 0, vertices.size());
 
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_NORMAL_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+		glDisableClientState(GL_VERTEX_ARRAY);
+		glDisableClientState(GL_NORMAL_ARRAY);
+		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
-    glDisable(GL_LIGHTING);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_DOUBLE, sizeof(Vec), &convexHull[0].x);
-    glDrawArrays(GL_POINTS, 0, convexHull.size());
-    glDisableClientState(GL_VERTEX_ARRAY);
+		glDisable(GL_LIGHTING);
+		glEnableClientState(GL_VERTEX_ARRAY);
+		glVertexPointer(3, GL_DOUBLE, sizeof(Vec), &convexHull[0].x);
+		glDrawArrays(GL_POINTS, 0, convexHull.size());
+		glDisableClientState(GL_VERTEX_ARRAY);
+	}
 
 
+    //Draw normals
 //    glBegin(GL_LINES);
 //    for (auto &v: vertices){
 //    	vec v2 = {v.coord.x + v.normal.x, v.coord.y + v.normal.y, v.coord.z + v.coord.z};
@@ -396,21 +394,31 @@ void ModelObject::render() {
 //    }
 //    glEnd();
 
-//	glVertexPointer(3, GL_DOUBLE, sizeof(Vertex), &vertices[0].coord.x);
-//	glNormalPointer(GL_DOUBLE, sizeof(Vertex), &vertices[0].normal.x);
-//	program->useProgram();
-//	modelTransform(programPointers.matrix, Vec(), 0, 1, 1);
-//    glVertexAttribPointer(programPointers.vertexPointer, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), &vertices[0].coord);
-//    glEnableVertexAttribArray(programPointers.vertexPointer);
-//
-////    glVertex3f(0,0,0);
-////    glVertex3f(.5,0,0);
-////
-////    glVertexAttribPointer(programPointers.nermalPointer, 4, GL_FLOAT, GL_FALSE, 0, gCometColors);
-////    glEnableVertexAttribArray(shaderColorPointer);
-////
-//    glDrawArrays(GL_POINTS, 0, vertices.size());
-//    glDrawElements(GL_QUADS, indices.size(), GL_UNSIGNED_INT, &indices[0]);
+	if (1)
+    {
+    	program->useProgram();
+    	glUniformMatrix4fv(programPointers.matrix, 1, GL_FALSE, m);
+    	glUniformMatrix4fv(programPointers.normalMatrix, 1, GL_FALSE, m2);
+    	glEnableVertexAttribArray(programPointers.vertexPointer);
+    	glEnableVertexAttribArray(programPointers.normalPointer);
+    	glEnableVertexAttribArray(programPointers.texCoordPointer);
+    	glVertexAttribPointer(programPointers.vertexPointer, 3, GL_DOUBLE, GL_FALSE, sizeof(Vertex), &vertices[0].coord.x);
+    	glVertexAttribPointer(programPointers.normalPointer, 3, GL_DOUBLE, GL_FALSE, sizeof(Vertex), &vertices[0].normal.x);
+    	glVertexAttribPointer(programPointers.texCoordPointer, 3, GL_DOUBLE, GL_FALSE, sizeof(Vertex), &vertices[0].tex.x);
+
+    	glActiveTexture(GL_TEXTURE0);
+    	glBindTexture(GL_TEXTURE_2D, texture);
+    	// Set the sampler texturePointer unit to 0
+    	glUniform1i(programPointers.texCoordPointer, 0);
+    	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    	glDrawArrays(GL_QUADS, 0, vertices.size());
+    	glDisableVertexAttribArray(programPointers.vertexPointer);
+    	glDisableVertexAttribArray(programPointers.normalPointer);
+    	glDisableVertexAttribArray(programPointers.texCoordPointer);
+    	glUseProgram(0);
+    }
 
     glPopMatrix();
 }

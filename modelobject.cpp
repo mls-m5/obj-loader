@@ -59,28 +59,36 @@ Face parseFace(std::string line){
 	for (int i = 0; i < 4; ++i){
 		string tmp;
 		ss >> tmp;
-		istringstream ss2(tmp);
 
-		string tmp2;
-		if(std::getline(ss2, tmp2, '/')){
-			face.vi[i] = toInt(tmp2);
-		}
-		else{
-			face.vi[i] = 0;
-		}
-		std::getline(ss2, tmp2, '/');
-		if(!tmp2.empty()){
-			face.ti[i] = toInt(tmp2);
-		}
-		else {
+		if (tmp.find('/') == string::npos){
+			face.vi[i] = toInt(tmp);
 			face.ti[i] = 0;
-		}
-		std::getline(ss2, tmp2, '/');
-		if(!tmp2.empty()){
-			face.ni[i] = toInt(tmp2);
+			face.ni[i] = 0;
 		}
 		else {
-			face.ni[i] = 0;
+			istringstream ss2(tmp);
+
+			string tmp2;
+			if(std::getline(ss2, tmp2, '/')){
+				face.vi[i] = toInt(tmp2);
+			}
+			else{
+				face.vi[i] = 0;
+			}
+			std::getline(ss2, tmp2, '/');
+			if(!tmp2.empty()){
+				face.ti[i] = toInt(tmp2);
+			}
+			else {
+				face.ti[i] = 0;
+			}
+			std::getline(ss2, tmp2, '/');
+			if(!tmp2.empty()){
+				face.ni[i] = toInt(tmp2);
+			}
+			else {
+				face.ni[i] = 0;
+			}
 		}
 	}
 
@@ -124,7 +132,7 @@ void ModelObject::calculateNormals(std::vector<Vertex> &vertices, std::vector<un
 		auto& v2 = vertices[indices[i + 1] - 1];
 		auto& v3 = vertices[indices[i + 2] - 1];
 		auto& v4 = vertices[indices[i + 3] - 1];
-		Vec n = calculateTriangleNormal(v1.coord, v2.coord, v3.coord);
+		auto n = calculateTriangleNormal(v1.coord, v2.coord, v3.coord);
 		v1.normal += n;
 		v2.normal += n;
 		v3.normal += n;
@@ -216,7 +224,7 @@ void ModelObject::load(std::string filename, bool recalculateNormals) {
 
 			if (readingHull){
 				if (line[1] != 'n' && line[1] != 't'){ //Ignoring normal and texture vertices
-					hullind.push_back(vert.size()); //Note that vertex at that index is a hull vertex
+//					hullind.push_back(vert.size()); //Note that vertex at that index is a hull vertex
 					hullvert.push_back(v);
 				}
 			}

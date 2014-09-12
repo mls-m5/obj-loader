@@ -65,9 +65,9 @@ int main(int argc, char *argv[])
     initDrawModule(512 * 2, 512 * 2);
 	ModelObject modelObject;
 	modelObject.init();
-	modelObject.load("ship2-smooth.obj", true);
+//	modelObject.load("ship2-smooth.obj", true);
 //	modelObject.load("untitled.obj", false);
-//	modelObject.load("ship3.obj", true);
+	modelObject.load("ship3.obj", true);
 //	modelObject.load("ship.obj", true);
 
 	bool running = true;
@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	QuitDrawModule();
 
     /* Delete our opengl context, destroy our window, and shutdown SDL */
     SDL_GL_DeleteContext(maincontext);

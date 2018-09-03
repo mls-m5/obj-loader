@@ -394,7 +394,7 @@ void ModelObject::render() {
 //    }
 //    glEnd();
 
-	if (1)
+	if (1) //New scool shaders and so on.. but no indexing
     {
     	program->useProgram();
     	glUniformMatrix4fv(programPointers.matrix, 1, GL_FALSE, m);

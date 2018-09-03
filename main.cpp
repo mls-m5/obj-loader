@@ -10,6 +10,8 @@
 
 #include "draw.h"
 #include "modelobject.h"
+#include <string>
+using namespace std;
 
 /* A simple function that prints a message, the error code returned by SDL,
  * and quits the application */
@@ -39,6 +41,12 @@ void checkSDLError(int line = -1)
 /* Our program's entry point */
 int main(int argc, char *argv[])
 {
+    string fname = "ship3.obj";
+    if (argc > 1) {
+        fname = argv[1];
+    }
+
+
     SDL_Window *mainwindow; /* Our window handle */
     SDL_GLContext maincontext; /* Our opengl context handle */
 
@@ -66,14 +74,15 @@ int main(int argc, char *argv[])
     glEnable(GL_DEPTH_TEST);
 
     initDrawModule(512 * 2, 512 * 2);
-	ModelObject modelObject;
-	modelObject.init();
+    ModelObject modelObject;
+    modelObject.init();
 //	modelObject.load("ship2-smooth.obj", true);
 //	modelObject.load("untitled.obj", false);
-	modelObject.load("ship3.obj", true);
+    //modelObject.load("ship3.obj", true);
 //	modelObject.load("ship.obj", true);
+    modelObject.load(fname, true);
 
-	bool running = true;
+    bool running = true;
 
 	while (running){
 
